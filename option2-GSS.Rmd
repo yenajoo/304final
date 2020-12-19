@@ -5,10 +5,15 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(kableExtra)
+library(knitr)
+library(tidyverse)
+data <- read_csv("gss.csv")
 ```
 
 # Abstract
 
+income ~ feelings-life, age, total children hh-size number marriages sex 
 
 # Keywords
 
@@ -19,8 +24,25 @@ knitr::opts_chunk$set(echo = TRUE)
 # Methodology
 
 ## Data
+```{r}
+data <- data %>% 
+  mutate(income = case_when(income_respondent == "$125,000 and more" ~ 125000.00, 
+                                   income_respondent == "$100,000 to $ 124,999" ~ 112499.50, 
+                                   income_respondent == "$75,000 to $99,999" ~ 87499.50, 
+                                   income_respondent == "$50,000 to $74,999" ~ 62499.50, 
+                                   income_respondent == "$25,000 to $49,999" ~37499.50, 
+                                   income_respondent == "Less than $25,000" ~ 12500.00))
+
+data
+#income_respondent ~ hh_size is_male number_marriages income_family age feelings_life total_children average_hours_worked
+```
 
 ## Model
+```{r}
+lm(income ~ hh_size + as.factor(income_family) + age + feelings_life + total_children + as.factor(average_hours_worked), data = data)
+
+lm(income ~ hh_size, data = data)
+```
 
 # Results 
 
