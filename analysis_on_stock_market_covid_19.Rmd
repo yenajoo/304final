@@ -97,6 +97,12 @@ kable(head(AirCanada.pre), caption = "Air Canada pre Pandemic")%>% kable_styling
 kable(head(AirCanada.post), caption = "Treatment group (Air Canada)")%>% kable_styling(latex_options = "HOLD_position")
 ```
 
+```{r}
+#select(AirCanada.pre, AC.TO.Close)
+select(AirCanada.pre, AC.TO.Close)
+#diff_in_diff <- cbind(AirCanada.pre, AirCanada.post)
+
+```
 
 
 
