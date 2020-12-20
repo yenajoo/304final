@@ -34,19 +34,6 @@ Throughout the report, we are going to analyze some market index to determine wh
 
 Three stock data will be used to investigate the effects of the COVID-19 pandemic on the stock market, stock a positive effect, negative effect, and no effect. In the Methodology section, I describe the data and the model that was used to see the time series trend of each stock's price. Results of the Difference in differences are provided in the Results section.  
 
-# Back up options
-I have some other options if this doesn't come out well. 
-
-## Option A
-Drug uses - maybe causual inference on drug uses/life satisfaction(i would have to simulate data for this) or study hours, or GPA
-and regression analysis along with it.   
-
-## Option B
-Using GSS data - similar approach as PS2, but using completely different factors for regression analysis. 
-I could probably also do a causal inference with the data.   
-
-I'm really being indecisive here, so I would appreciate a lot(and I mean, A LOT) if you guys help me choosing one topic <3 Thank you!
-
 # Methodology
 
 ## Data

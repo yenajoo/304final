@@ -1,46 +1,77 @@
 ---
 title: "Analysis on housing prices"
 author: "Yena Joo"
-date: "19/12/2020"
+date: "December 2020"
 output:
   pdf_document: default
   html_document:
     df_print: paged
 ---
-
+*Code and data supporting this analysis is available at: https://github.com/yenajoo/304final.git*
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-#tinytex::install_tinytex()
 library(kableExtra)
 library(knitr)
 library(tidyverse)
 library(gridExtra)
+library(MASS)
+library(dplyr)
 options(scipen = 999)
 data <- read.csv("housingprice/data.csv")
 ```
 # Abstract 
+- Here you are provided a brief summary of the entire report. 
+- This is generally written as one long paragraph.
+- what was done, what was found, and why this matters (all at a high level).  
+
+Housing price prediction dataset from Kaggle - a data science community with various public open data - is used to study and analyze some potential factors affecting the dwelling prices. The dataset includes information about dwellings sold between May 2014 and May 2015(cite). Only useful quantitative variables are selected through a simple data cleaning in order to obtain a smooth analysis. 
+After selecting significant variables using AIC stepwise selection method^[*AIC stepwise selection method is explained in the Model section], Multiple linear regression model is used to determine the significant factors that affect the dwelling prices. Through the analysis, we find ....      
+1. positive/negative relationships between the independent variables ........  
+2. no significant relationship   
+3. causal inference  
+Altogether, .......
 
 # Keywords
+housing price, linear regression, treatment/control group, causal inference, housing price prediction, 
 
 # Introduction
+The world has been overturned by an unexpected virus COVID-19, and it seems that the real-estate market has been under the spotlight since the Covid-19 pandemic. People started to look for houses rather than apartments and condos. The spread of the virus caused the housing price to fluctuate by almost 40%. House is one of the most demanding ??? to people, since it is one of the most important components of people living. To have a better understanding of the real-estate market is the key of predicting the dwelling price and purchase an ideal house. 
+
+Throughout the report, we are going to analyze some potential factors that affect housing prices to determine which characteristics of the houses have shown the most correlation to the housing price, and analyze the causal effect using the difference in differences between renovated houses and non-renovated houses, one being assumed as a "treatment" group, where they are expected higher price by renovation. The other houses would be in a "control" group, where the house have never been renovated. The difference is differences are measured by two different variables, control and treatment, and by first calculating the difference in first and second time periods, and then subtracting the average change in the control group from the average change in the treatment group(3).  
+
+we will use statistical methods to build a regression model of housing prices by potential factors, and interpret the regression output to find relationships between the houseing prices and potential factors.
+
+Three housing price data will be used to investigate the relationship between housing prices and potential factors such as number of bedrooms, bathrooms, sqft, etc. In the Methodology section, I describe the data and the model that is used to analyze the relationship. Results of the Difference in differences are provided in the Results section.
+
 
 # Methodology
 
 ## Data
-```{r}
-housing_data <- select(data, -date, -waterfront, -view, -street, -city, -statezip, -country)
-#housing_data
-kable(head(housing_data), "latex", booktabs = T, align = "c")%>% 
+- describe dataset
+1. source of the data: Kaggle 
+- The methodology and approach that is used to collect and process the data.
+- The population, the frame, and the sample.
+
+The contents of the dataset contains house sale prices for King County, which includes Seattle. It includes homes sold between May 2014 and May 2015 (Kaggle). It consists of 21613 data and 21 variables. 
+
+The target population of the dataset includes all houses in the King County, USA. The frame population and sample population are whichever bought or sold within the county. There is not enough information regarding the dataset.  
+
+The reason for choosing the 2014-2015 data is because it shows the most stable housing prices which is before the pandemic.  
+
+
+```{r echo = F, warning= F, message = F}
+#housing_data <- select(data, -date, -sqft_lot, -sqft_above, -waterfront, -view, #-street, -city, -statezip, -country, -sqft_basement)
+housing_data <- dplyr::select(data, price, bedrooms, bathrooms, sqft_living, floors, condition, yr_built, yr_renovated)
+data_for_output <- housing_data
+colnames(data_for_output) = c("Price", "bedrooms", "bathrooms", "living area(sqft)", "floors", "condition", "year built", "year renovated")
+#Raw data output
+kable(head(data_for_output), "latex", booktabs = T, align = "c", caption = 'Raw data output')%>% 
   kable_styling(position = "center")
-plot1<- ggplot(housing_data, aes(x = sqft_lot, y = price)) +
+
+plot1<- ggplot(housing_data, aes(x = sqft_living, y = price)) +
     geom_point() + ggtitle("Figure 1: before adjusting")
-```
-outliers should be omitted  
-```{r}
-#newdata <- data.frame()
-#for(i in 1:length(housing_data) ) {
-  #if(housing_data$price[i] >= 10000000 | housing_data$sqft_lot >= 600000){
-   #newdata <-  rbind(housing_data , housing_data[i,]) }}
+
+#now, clean some data/eliminate some outliers
 housing_data <- filter(housing_data, price <= 7000000 ) 
 housing_data <- filter(housing_data, sqft_living <= 8000 )
 plot2<- ggplot(housing_data, aes(x = sqft_living, y = price)) +
@@ -49,33 +80,97 @@ grid.arrange(plot1, plot2, ncol=2)
 ```
 
 ## Model
+Multiple Linear Regression model is chosen for the analysis, since it contains a lot of quantitative variables that are suitable for the linear regression. The predictor variables used in the model are number of bedrooms, number of bathrooms, living space in sqft, and an interaction term of bedrooms and living space in sqft.  
+Interaction terms are used *interaction terms explained*
 
-```{r}
-options(scipen = 999)
-summary(lm(price ~ bedrooms + sqft_living + bathrooms + bedrooms*sqft_living, data = housing_data))
-summary(lm(price ~ bedrooms + bathrooms, data = housing_data))
-model <- lm(price ~ bedrooms + bathrooms + sqft_living + floors + yr_built, data = housing_data)
-kable(broom::tidy(summary(model)), "latex", booktabs = T, align = "c") %>% 
+### Model Selection
+There could be a various potential factors affecting the house prices. Therefore, it is critical to determine which variables should be included in the multiple linear regression. There are various ways to determine, but AIC stepwise selection method is going to be used to the model.  
+
+AIC is a short form of Akaike Information criterion, which quantifies the amount of information loss due to the simplication. AIC uses a model's maximum likelihood estimation as a measure of fit. Simply, smaller AIC shows improvement in model performance. Through the process of eliminating and adding the variables, it compares AIC in each step and determines the model with the lowest AIC.   
+
+Formula for AIC is the following:   
+
+AIC = $-2(log-likelihood) + 2k$  
+Where k is the number of variables included in the model, and Log-likelihood indicates a measure of goodness of fit for any model.  
+
+which starts with all predictors in the model (full model) along with the model without any predictor, iteratively removes the least contributive predictors or add a potential contributive predictors, and stops when you have a model where all predictors are statistically significant.
+```{r, include = T, echo = F}
+full_reg <- lm(price ~ bedrooms + bathrooms + sqft_living + floors + yr_built + condition, data = housing_data)
+null_reg <- lm(price ~ -1, data = housing_data)
+finalmodel <- stepAIC(null_reg, direction = "both", trace = 1, scope = list(lower = null_reg, upper = full_reg))
+#step$anova
+```
+```{r, echo = F}
+kable(broom::tidy(summary(finalmodel)),"latex", booktabs = T, align = "c", caption = 'AIC model summary') %>% 
   kable_styling(position = "center")
+
+```
+
+*explain the output*  
+*using this, our final equation is*  
+
+The equation for the regression is:  
+
+
+housing price = $\hat{B_0}\ +\ \hat{B_1}*x_{bedrooms}\ +\ \hat{B_2}*x_{bathrooms}\ +\ \hat{B_3}*x_{sqft living}\ +\ \hat{B_4}*x_{bedrooms}x_{sqftliving}\ $ 
+*detailed description needed*
+
+
+### Linearity assumptions 
+
+
+# Results 
+```{r, echo = F, warning= F, message = F}
+options(scipen = 999)
+#summary(lm(price ~ bedrooms + sqft_living + bathrooms + bedrooms*sqft_living, data = housing_data))
+#summary(lm(price ~ bedrooms + bathrooms, data = housing_data))
+model <- lm(price ~ sqft_living + bedrooms + condition + yr_built + floors, data = housing_data)
+kable(broom::tidy(summary(model)), "latex", booktabs = T, align = "c", caption = 'Regression summary') %>% 
+  kable_styling(position = "center", latex_options = "hold_position")
 ggplot(housing_data, aes(x = bedrooms + bathrooms + sqft_living + floors + yr_built, y = price)) + 
   geom_point() +
-  stat_smooth(method = "lm", col = "red") + ggtitle("regression")
+  stat_smooth(method = "lm", col = "red") + ggtitle("Figure n: regression")
 
 #ggplotRegression(lm(price ~ bedrooms + bathrooms + sqft_living + floors + yr_built, data = housing_data))
 #abline(price ~ bedrooms + bathrooms + sqft_living + floors + yr_built)
 ```
+The regression equation using the estimates from Table n, the equation is the following:  
 
+housing price = $\hat{B_0}\ +\ \hat{B_1}*x_{bedrooms}\ +\ \hat{B_2}*x_{bathrooms}\ +\ \hat{B_3}*x_{sqft living}\ +\ \hat{B_4}*x_{bedrooms}x_{sqftliving}\ $.
+
+As observed from the output, the price of the house increases as the number of bathrooms, living space(in sqft), number of floors increase.
+
+**what increases**  
+**pvalues**  
+Every variable has a very significant value at 1% significance level, as seen in Table 3, p-value column. Therefore, the regression model suggests that every factor has a linear relationship to the housing price. 
+
+### Causal inference
 if yr_renovated == 0, treatment = 0 
 ```{r}
+set.seed(304)
 #make variables for control/treatment/time group
 housing_data <- housing_data %>% 
   mutate(treatment_group = case_when(
     yr_renovated != 0 ~ 1, 
     yr_renovated == 0 ~ 0 ))
-housing_data <- housing_data %>% 
-  mutate(time = sample(0:1, length(price), replace=T))
+housing_data <- housing_data %>% mutate(time = sample(0:1, length(price), replace=T))
+table(housing_data$treatment_group)
+```
 
+```{r}
+#treatmenttime = 1861/2
+#housing_data <- 
+#   for (i in 1:length(housing_data$time)) {
+#     if(housing_data$yr_renovated[i] == 1){
+#       mutate(housing_data, i = sample(0:1, 1, replace = T))
+#     }
+ #   else{
+ #    mutate(housing_data, i = sample(0:1, 1, replace = T))
+ #   }}
 
+```
+
+```{r}
 
 # visualize
 housing_data$treatment_group <- 
@@ -99,22 +194,57 @@ housing_data %>%
 
 ```
 
-# Results 
 
 # Discussion
 
 ## Summary
+The goal of the analysis is to find the significant factors that affect price of houses. Using the housing price dataset from Kaggle, only quantitative data is used to show the accurate multiple linear regression. To determine which variables to include in the regression, AIC stepwise selection method is used. The predictor variables that contribute to change in housing prices are number of bedrooms, bathrooms, .......  
+
+multiple linear regression & analyzed 
+as well as causal inference using difference-in-differences.  
+For the results, we got **result**  
+
 
 ## Conclusions 
-
+- Here is where you explain what the results really mean, and identify any relevant findings.
+- Make sure to touch on global impacts. For example,
 
 ## Weaknesses 
+- This sub-section can be split into two, if needed
+- Be careful here, especially if you are simulating data. You can never simulate every single
+scenario. So you will have some generalizability issues. - Addressing weaknesses of the analysis.
+- Addressing future steps of the analysis.
+o Hint: a good future step might be to compare with the actual election results and do a post-hoc analysis (or at least a survey) of how to better improve estimation in future elections.
+
 
 ## Next Steps
+
 
 # Reference
 
 1. linear regression assumptions: https://www.statology.org/linear-regression-assumptions/
+
 2. ggplot regression: https://sejohnston.com/2012/08/09/a-quick-and-easy-function-to-plot-lm-results-in-r/
+
 3. exponential notation: https://stackoverflow.com/questions/9397664/force-r-not-to-use-exponential-notation-e-g-e10
+
 4. ggplot side by side: https://stackoverflow.com/questions/1249548/side-by-side-plots-with-ggplot2
+
+5. Kaggle https://www.kaggle.com/shree1992/housedata
+
+6. Toronto home Sales: https://www.canadianmortgagetrends.com/2020/04/covid-19s-impact-on-real-estate-toronto-home-sales-down-69/
+
+7. r-squared?: https://blog.minitab.com/blog/adventures-in-statistics-2/how-to-identify-the-most-important-predictor-variables-in-regression-models
+
+8. Forward selection: https://www.jmp.com/en_in/statistics-knowledge-portal/what-is-multiple-regression/variable-selection.html
+https://medium.com/@ashutosh.optimistic/what-is-stepaic-in-r-a65b71c9eeba
+
+
+9. AIC stepwise selection: https://stats.stackexchange.com/questions/9171/aic-or-p-value-which-one-to-choose-for-model-selection
+
+10. AIC anova: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4842399/
+
+11. Assumption for multiple linear regression: https://scholarworks.umass.edu/cgi/viewcontent.cgi?article=1111&context=pare
+  https://www.statisticssolutions.com/assumptions-of-multiple-linear-regression/
+  
+
