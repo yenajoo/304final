@@ -9,7 +9,8 @@ output:
 ---
 
 ## Analysis on Key Factors that affect the Housing Price and a causal inference of Renovation affecting the house price
-*Code and data supporting this analysis is available at: https://github.com/yenajoo/304final.git*
+*Code and data supporting this analysis as well as the README file are available at:*    
+*https://github.com/yenajoo/304final.git*
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(kableExtra)
@@ -23,6 +24,7 @@ library(tableone)
 library(Matching)
 library(rbounds)
 library(broom)
+library(huxtable)
 options(scipen = 999)
 data <- read.csv("kc_house_data.csv")
 #data <- read.csv("housingprice/data.csv")
@@ -39,9 +41,11 @@ housing price prediction, multiple linear regression, AIC selection method, VIF,
 # Introduction
 The world has been overturned by an unexpected virus COVID-19, and it seems that the real estate market has been under the spotlight since the Covid-19 pandemic. People started to look for houses rather than apartments and condos. The spread of the virus caused the housing price to fluctuate by almost 40%. The real estate market is one of the most demanding markets for people since it is one of the most important components of people living. To have a better understanding of the housing prices, it is important to know what affect house price to increase.  
 
-Throughout the report, we are going to analyze some potential factors that affect housing prices to determine which characteristics of the houses have shown the most correlation to the housing price, and analyze the causal link between the houses that have been renovated and that have not been renovated using the propensity score matching between renovated houses and non-renovated houses, one being assumed as a "treatment" group, where they are expected higher price by renovation. The other houses would be in a "control" group, where the house has never been renovated.  
+Throughout the report, we are going to analyze some potential factors that affect housing prices to determine which characteristics of the houses have shown the most correlation to the housing price, and analyze the causal link between the houses that have been renovated and that have not been renovated using the Propensity Score Matching^[*Propensity score matching is explain in "Causal inference using Propensity score matching" section.].
+between renovated houses and non-renovated houses, one being assumed as a "treatment" group^[*treatment group is the group of people/observations who received a treatment based on the effect researchers wish to study, usually in an experimental study], where they are expected higher price by renovation. 
+The other houses would be in a "control" group^[* Control group is a group of observations who do not receive a treatment], where the house has never been renovated.  
 
-To build a multiple linear regression model of housing prices by potential factors, AIC stepwise selection method is used, and the model is used to interpret the regression output to find relationships between the housing prices and potential factors. The housing price data will be used to investigate the relationship between housing prices and potential factors such as the number of bedrooms, bathrooms, sqft, etc. In the Methodology section, I describe the data and the model that is used to analyze the relationship. Results of the Difference in differences are provided in the Results section.  
+To build a multiple linear regression model of housing prices by potential factors, AIC stepwise selection method is used, and the model is used to interpret the regression output to find relationships between the housing prices and potential factors. The housing price data will be used to investigate the relationship between housing prices and potential factors such as the number of bedrooms, bathrooms, sqft, etc. In the Methodology section, I describe the data and the model that is used to analyze the relationship. The result of the Propensity score matching is provided in the Results section.  
 
 
 
@@ -52,8 +56,9 @@ Some key features of the dataset are that every data is quantitative values, whi
 
 Some weaknesses of the data are that this data obtains the real-estate market information in King County, which might have different standards of house sales in Toronto or Canada. The dataset represents the housing price in the USA rather than in Canada. Also, since the COVID-19 pandemic made the real-estate market to fluctuate, 2014-2015 house sales data might not fully represent the prediction of the house price made in the analysis. Also, the dataset is not the best choice for the causal inference since there is no information about the prices of the house before it was renovated. In this case, propensity score matching is a better method to use than the difference-in-differences method(DID)^[*DID is a method that determines the causal inference by comparing the changes in outcomes over time between a population in the treatment group and the control group]. 
 
-The following table is the baseline characteristics table:
 ```{r echo = F, warning= F, message = F}
+##Data cleaning
+
 #select columns that are going to be used in the analysis
 housing_data <- dplyr::select(data, price, bedrooms, bathrooms, sqft_living, floors, condition, yr_built, yr_renovated)
 data_for_output <- housing_data
@@ -91,10 +96,6 @@ data_for_output$treatment_group <-
 
 
 #basline characteristics 
-
-#table<-table1(~ price + bedrooms + bathrooms + sqft_living + floors + condition + yr_built + yr_renovated| treatment_group, data = housing_data, output = "pdf")
-#knitr::kable(table, caption = "Baseline Characteristics Table")
-#topclass = "Rtable1-zebra",
 myVars <- c("price", "bedrooms", "bathrooms", "sqft_living", "floors", "condition", "yr_built", "yr_renovated")
 factorVars <- c ("treatment_group")
             
@@ -105,13 +106,15 @@ kableone_nonnorm <- function (x, nonnormal, ...)
   capture.output(x <- print(x))
   knitr::kable(x, ...)
 }
+
 kableone_nonnorm(tab3, "latex", booktabs = T, align = "c", caption = 'Baseline Characteristics') %>% 
   kable_styling(position = "center",  latex_options = "hold_position")
 #kable(broom::tidy(summary(tab3)))
 #print(tab3, nonnormal = T, formatOptions = list(big.mark = ","))
 ```
 
-The table contains 9 variables. The included variables are the price of the house, bedrooms, bathrooms, living area(sqft), floors, condition, year built, year renovated, and treatment variable renovation is newly created for the future propensity score matching. The values on the left column with the title "Not Renovated" are the values of a control group, and the right side "Renovated" is a treatment group.  
+
+Table 1 is the baseline characteristics table and there are 9 variables included - the price of the house, bedrooms, bathrooms, living area(sqft), floors, condition, year built, year renovated, and treatment variable renovation is newly created for the future propensity score matching. The values on the left column with the title "Not Renovated" are the values of a control group, and the right side "Renovated" is a treatment group.  
 
 To briefly explain what each variable is, price_house is the price of the house, bedrooms, and bathrooms are the number of bedrooms and bathrooms in the house. sqft_living is the living area of the house in the sqft unit, and floors variable is the number of floors in the house. the condition indicates how good the condition of the house is, on a scale from 0 to 5. yr_built is the year the house was built, and yr_renovated is the year the house was renovated. If the house is never renovated, the value of yr_renovated is 0.  
 Treatment_group is a dummy variable that has a value of 0 if the house is never renovated, and 1 if the house was renovated at least one time. 
@@ -155,7 +158,7 @@ plot(housing_data$sqft_living, housing_data$price, main="Scatterplot Example")
 \newpage
 
 # Model
-Multiple Linear Regression model is chosen for the analysis, since it contains a lot of quantitative variables that are suitable for the linear regression. The predictor variables used in the model are number of bedrooms, number of bathrooms, living space in sqft.
+Multiple Linear Regression model is chosen for the analysis, since it contains a lot of quantitative variables that are suitable for the linear regression. The predictor variables used in the model are number of bedrooms, bathrooms, living area in sqft, year built, and condition of the house. This section explains how the model is selected.  
 
 ## Model Selection
 There could be various potential factors affecting house prices. Therefore, it is critical to determine which variables should be included in the multiple linear regression. There are various ways to determine, but AIC stepwise selection method is going to be used in the model.  
@@ -171,12 +174,13 @@ Where k is the number of predictor variables included in the model, and the Log-
 There are 3 methods, forward selection, backward elimination, and the combination of both. Forward selection starts from one variable, and iteratively adds one variable at a time to compare the AIC value until the AIC is the smallest. Backward elimination starts with a full model that includes every variable in the model, and iteratively removes the least contributed predictors until it reaches the lowest AIC value. Combination of both eliminates or adds potential contributive predictor variables, and stops when you have a model where all predictors are statistically significant.  
 
 ```{r, include = F, echo = F}
+#AIC stepwise selection method
 full_reg <- lm(price ~ bedrooms + bathrooms + sqft_living + yr_built + condition, data = housing_data)
 null_reg <- lm(price ~ -1, data = housing_data)
 finalmodel <- stepAIC(null_reg, direction = "both", trace = 1, scope = list(lower = null_reg, upper = full_reg))
-#step$anova
 ```
 ```{r, echo = F}
+#output table of the final model
 kable(broom::tidy(summary(finalmodel)),"latex", booktabs = T, align = "c", caption = 'AIC model summary') %>% 
   kable_styling(position = "center",  latex_options = "hold_position")
 
@@ -190,11 +194,20 @@ The equation for the regression is:
 
 $$\text{Housing Price} = \hat{B_0}\ +\ \hat{B_1}*x_{bedrooms}\ +\ \hat{B_2}*x_{bathrooms}\ +\ \hat{B_3}*x_{sqftliving}\ +\ \hat{B_4}*x_{yrbuilt}\ + \hat{B_5}*x_{condition}\ \ \ (2)$$ 
 
-The equation above is going to be interpreted for the multiple linear regression in the Results section. 
+The equation above^[* the description of each variable can be found in the footnotes of the Result section.] is going to be interpreted for the multiple linear regression in the Results section. 
 
+# Results
 
-### Model Diagnostics 
+## Model Diagnostics 
 With the regression model created in the Model section, it is critical to keep in mind that the multiple linear regression analysis is well performed under the following assumptions:  
+
+```{r, echo = F, message = F}
+# Graphs for model diagnostics
+model2 <- lm(price ~ bedrooms + sqft_living + yr_built + condition, data = housing_data)
+par(mfrow = c(2, 2))
+plot(model2)
+mtext("Figure 3: Model Diagnostics", side = 3, line = -14.3, outer = TRUE)
+```
 
 1. Linearity: There should be a linear relationship between the dependent and independent variables.  
 By showing the scatter plot above(Figure 2), it satisfies the linearity assumption. It can also be checked by the top-left graph in Figure 3, where the residual plot shows no visible pattern, and the red line is almost horizontal. Hence, the first assumption is satisfied  
@@ -203,6 +216,7 @@ By showing the scatter plot above(Figure 2), it satisfies the linearity assumpti
 Up to 2 theoretical quantiles, the data points perfectly trend the reference line and has a slight high tail at the end of the line. The data points that are off the line might indicate there exists some outliers, it should be into account that the result drawn from the regression model could be misleading or biased. This assumption is going to be dealt in the Weakness section. However, overall, most of the points fall approximately along the reference line, hence the second assumption is also satisfied.  
 
 ```{r, echo = F}
+# not used. 
 #model2 <- lm(price ~ bedrooms + sqft_living  + yr_built + condition, data = housing_data)
 #plot(model2, which=c(2), main = "Figure 3: normal Q-Q plot")
 
@@ -213,7 +227,7 @@ Up to 2 theoretical quantiles, the data points perfectly trend the reference lin
 
 
 3. No multicollinearity: Independent variables should not be highly correlated with each other.  
-This assumption could be checked by using the Variance Inflation Factor(VIF) values. VIF indicates the value of how much the variances in the regression estimates are increased due to multicollinearity. The following table shows the VIFs of the model.   
+This assumption could be checked by using the Variance Inflation Factor(VIF) values. VIF indicates the value of how much the variances in the regression estimates are increased due to multicollinearity. The following table shows the VIFs of the model. The left table in Table 3 is the initial model from the AIC selection method. Two variables, bathrooms and living area(sqft) have relatively high VIF which indicates that multicollinearity is a problem for the two variables. Therefore, the variable bathrooms are omitted from the model as seen in the right table, and VIF values do not exceed 2 in the adjusted model. Hence, after eliminating one variable, the third assumption is also satisfied. 
 
 ```{r, echo = F, message = F, warning=F}
 #VIF 
@@ -221,9 +235,9 @@ model1 <- lm(price ~ bedrooms + bathrooms + sqft_living + yr_built + condition, 
 model2 <- lm(price ~ bedrooms + sqft_living + yr_built + condition, data = housing_data)
 
 # vif before and after removing a variable
-vif1 <- tibble(variables = c("bedrooms", "bathrooms", "living space(sqft)",
+vif1 <- tibble(variables = c("bedrooms", "bathrooms", "living area(sqft)",
                                   "year built", "condition"), VIF = car::vif(model1))
-vif2 <- tibble(variables = c("bedrooms", "living space(sqft)",
+vif2 <- tibble(variables = c("bedrooms", "living area(sqft)",
                                   "year built", "condition"), VIF = car::vif(model2))
 kable(
   list(vif1, vif2),
@@ -231,48 +245,47 @@ kable(
   booktabs = T, 
   valign = 't'
 )%>%
-kable_styling(latex_options = "hold_position", position = "center")
+kable_styling(position = "center")
 
-#model3 <- lm(price ~ bedrooms + bathrooms + yr_built + condition, data = housing_data)
 ```
-The left table in Table 3 is the initial model from the AIC selection method. Two variables, bathrooms and living space(sqft) have relatively high VIF which indicates that multicollinearity is a problem for the two variables. Therefore, the variable bathrooms are omitted from the model as seen in the right table, and VIF values do not exceed 2 in the adjusted model. Hence, after eliminating one variable, the third assumption is also satisfied. 
 
 4. Homoscedasticity: Variance of error terms should be similar across the values of the independent variables.  
 This assumption can be checked through the plot of standardized residuals vs predicted values, having points equally distributed across all values of independent variables(cite). 
-To have the assumption satisfied, there should be no clear pattern in the distribution.
-
-```{r, echo = F, message = F}
-par(mfrow = c(2, 2))
-plot(model2)
-mtext("Figure 3: Model Diagnostics", side = 3, line = -14.3, outer = TRUE)
-```
+To have the assumption satisfied, there should be no clear pattern in the distribution.  
 The bottom left graph, which is the Scale-Location graph in Figure 3 determines whether the model satisfies the fourth assumption, by looking at the red line. A horizontal line with well-distributed points is a good indication of homoscedasticity(13). Therefore, the homoscedasticity assumption is also satisfied. 
 
 
 
-# Results 
+## Results of the Model
 The following is the summary of the multiple linear regression model using the selected predictor variables:  
 
 ```{r, echo = F, warning= F, message = F}
 options(scipen = 999)
 #linear regression model summary output
 model <- lm(price ~ bedrooms + sqft_living + yr_built + condition, data = housing_data)
-kable(broom::tidy(summary(model)), "latex", booktabs = T, align = "c", caption = 'Regression summary') %>% 
+sum <- coef(summary(model))
+#kable(broom::tidy(summary(model)), "latex", booktabs = T, align = "c", caption = 'Regression summary') %>% 
+  #kable_styling(position = "center", latex_options = "hold_position")
+rownames(sum) <- c("(Intercept)", "bedrooms", "living area(sqft)", "year built", "condition" )
+kable(sum, "latex", booktabs = T, align = "c", caption = 'Regression summary') %>% 
   kable_styling(position = "center", latex_options = "hold_position")
-
-#summary(model)
 ```
 
-The regression equation using the estimates from Table n, the equation is the following:  
+The regression equation using the estimates from Table 4, the equation is the following:  
 
-$$\text{Housing Price} = 1228613.95 - 56137.20*x_{bedrooms}\ + 290.26*x_{sqft living}\ - 613.03*x_{yearbuilt}\ + 22445.80*x_{condition}\ \ \ \ (3) $$.  
-**description for x variables are introduced in the previous section? explain it** 
+$$\text{Housing Price} = 1228613.95 - 56137.20*x_{bedrooms}\ + 290.26*x_{sqft\ living}\ - 613.03*x_{yr\ built}\ + 22445.80*x_{condition}\ \ \ \ (3) $$
+(The detailed descriptions of the x variables could be found in the footnote^[* $x_{bedrooms}$ is the number of bedrooms in the house  
+\   \   \ * $x_{sqftliving}$ is a living area of the house in sqft unit measure.  
+\   \   \ * $x_{yearbuilt}$ is the year the house was built.   
+\   \   \ * $x_{condition}$ is a measure of how good condition the house is in from 0 to 5 scale  
+\   \   \ (i.e. $x_{condition} = 0$ if the house is in a terrible condition, and $x_{condition}\ =\ 5$ if the house is in perfect condition).]).  
 
-In Table 4, as observed from the output, the price of the house increases as the number of a living area(in sqft), and condition increase. As 1 sqft increase of the house, the house price is expected to increase about \$290, and if the house condition rating is 1 unit higher, the house has a /$22445 higher expected price.  
 
-However, an increase in the number of bedrooms, and year built have a negative effect on the housing prices. As the house has one more bedroom, the price of the house would likely to fall approximately \$56137. Also, a house that is built 1 year before is expected to have a higher price(approximately \$613 more)than the newly built house.
+In Table 4, as observed from the output, the price of the house increases as the number of a living area(in sqft), and condition increase. As 1 sqft increase of the house, the house price is expected to increase about \$290, and if the house condition rating is 1 unit higher, the house has a \$22445 higher expected price.  
 
-Also, every variable has a very significant value at a 1% significance level, as seen in Table 3, p-value column. The p-values are rounded to 0 which indicates every p-value is significantly small. Therefore, the regression model suggests that every factor has a significant linear relationship to the housing price. 
+However, an increase in the number of bedrooms, and year built have a negative effect on the housing prices. As the house has one more bedroom, the price of the house would likely to fall approximately \$56137. Also, a house that is built 1 year before is expected to have a higher price(approximately \$613 more) than the newly built house.
+
+Also, every variable has a very significant value at a 1% significance level, as seen in Table 3, p-value column. The p-values are rounded to 0 which indicates every p-value is significantly small and significant at a 1% significance level. Therefore, the regression model suggests that every factor has a significant linear relationship to the housing price. 
 
 Now, here is the visual image of how the model looks like:  
 
@@ -281,43 +294,30 @@ Now, here is the visual image of how the model looks like:
 ggplot(housing_data, aes(x = bedrooms + sqft_living + floors + yr_built + condition, y = price)) + 
   geom_point() +
   stat_smooth(method = "lm", col = "red") + ggtitle("Figure 4: Plot of the Multiple Linear Regression") + xlab("Predicted variables")
-
-#ggplotRegression(lm(price ~ bedrooms + bathrooms + sqft_living + floors + yr_built, data = housing_data))
-#abline(price ~ bedrooms + bathrooms + sqft_living + floors + yr_built)
 ```
 
-As seen in Figure 4, The combined predictor variables have positive effect to the housing price.
+As seen in Figure 4, The combined predictor variables have a positive effect on the housing price, even though number of bedrooms^[* Some potential bias on the variable is going to be discussed in the Weakness section.] and year built affect negatively on the house price. 
 
+\newpage
+## Causal Inference Using Propensity Score Matching
+The propensity score is the probability of treatment assignment conditional on observed baseline characteristics that are derived from the fitted regression model. (cite,15) The probability is constructed based on the values of independent variables before the treatment. One advantage of propensity score matching is that it allows us to easily consider many independent variables at once, and it can be constructed using logistic regression. In the analysis, the same variables used in the multiple linear regression model are used to construct the multiple logistic regression to find out the effect of the predictor variables on the renovation.   
 
-### Causal inference
-The propensity score is the probability of treatment assignment conditional on observed baseline characteristics that is derived from the fitted regression model.(cite,15) The probability is constructed based on the values of independent variables before the treatment. 
+Housing price is the outcome of interest in the analysis, and year renovated is the Treatment variable. The Propensity Score matching will be for the year renovated propensity. We first construct a logistic regression model that explains whether a house is included in the treatment group(whether the house is renovated) as a function of other independent variables. After dividing them into two groups, for every house that is treated, there should be another variable that is included in the control group(not renovated) but has similar characteristics, based on the propensity score. The two variables are pair-matched one-to-one based on the characteristics from the logistic model, having similar values of the propensity score.
 
-**Propensity score matching involves assigning some probability to each observation. We construct that probability based on the observation’s values for the independent variables, at their values before the treatment. That probability is our best guess at the probability of the observation being treated, regardless of whether it was treated or not. For instance, if 18-year-old males were treated but 19-year-old males were not, then as there is not much difference between 18-year-old males and 19-year-old males our assigned probability would be fairly similar. We can then compare the outcomes of observations with similar propensity scores.**
+The logistic model is the following:  
+$$ log(\frac{p}{1-p}) = \beta_0+\beta_1  x_{bedrooms} +\beta_2 x_{sqft\ living}+\beta_3 x_{yr\ built}+\beta_4x_{condition}\ \ \ (4)$$
+where $log(\frac{p_{i}}{1-p_{i}})$ represents log odds in each model, and $p_{i}$ is the probability of an event occurring, which in this case is whether the house is renovated or not.   
 
-- Treatment causes the outcomes.
+For the model diagnostics, logistic regressions are well performed under the following assumptions:  
 
--the renovated year variable in the propensity score regression has a small p-value, indicating that it is a significant predictor variable.
+1. Linearity between the log odds and the predictor variables: Independent variables should be linearly related to the log odds  
+2. Binary response variable: Binary logistic regression requires the response variable to be binary  
+3. Multicollinearity among predictors is not too high. predictor variables should be independent of each other
+3. Large sample size  
+(Similar diagnostics is also introduced with detailed explanation in the Model Diagnostics section, so in this section, the process is not shown due to the redundancy.)
 
-One advantage of propensity score matching is that is allows us to easily consider many independent variables at once, and it can be constructed using logistic regression. The same variables used in multiple linear regression model are used to construct the multiple logistic regression to find out the effect of the predictor variables on renovation.   
+The dataset is reduced to 596 observations after matching the variables one-to-one explained above. Using this new dataset, a propensity score regression is created in the following table:
 
-- for propensity score matching you need it to be binary (in this course) because we only covered binary outcome regression (logistic) and if your treatment is continuous you wont be able to "match".
-- one-to-one or pair matching is done based on the characteristics covered in the logistic regression model, in which pairs of treated and untreated subjects are formed, such that matched subjects have similar values of the propensity score.
--> Based on the characteristics covered in the logistic regression model in which pairs of treated and untreated subjects are created, one-to-one or pair matching is done such that matched subjects have similar propensity score values. After matching the data, the treatment effect can be estimated by comparing the treated and control group. Here, treated subject is the house that is renovated, and the control group is the house that is not renovated.
-
- **If the outcome is continuous (e.g., a depression scale), the effect of treatment can be estimated as the difference between the mean outcome for treated subjects and the mean outcome for untreated subjects in the matched sample. Once the effect of treatment has been estimated in the propensity score matched sample, the variance of the estimated treatment effect and its statistical significance can be estimated.**
-
-The dataset is reduced to 596 observations after matching the variables. Using this new dataset, a propensity score regression is created in the following table:
-
-```{r, echo = F, message = F, include = F}
-set.seed(304)
-#make variables for control/treatment/time group
-#housing_data <- housing_data %>% 
-  #mutate(treatment_group = case_when(
-   # yr_renovated != 0 ~ 1, 
-   # yr_renovated == 0 ~ 0 ))
-#housing_data <- housing_data %>% mutate(time = sample(0:1, length(price), replace=T))
-#table(housing_data$treatment_group)
-```
 
 ```{r, echo = F, message = F, warning= F}
 #propensity score matching
@@ -339,6 +339,8 @@ housing_data <-
   housing_data %>% 
   arrange(.fitted, treatment_group)
 
+#use a matching function from the arm package. This finds which is the closest 
+#of the ones that were not treated, to each one that was treated.
 housing_data$treatment_group <- if_else(housing_data$treatment_group == 0, 0, 1)
 housing_data$treatment_group <- as.integer(housing_data$treatment_group)
 
@@ -347,55 +349,67 @@ matches <- arm::matching(z = housing_data$treatment_group,
 
 housing_data <- cbind(housing_data, matches)
 
+#reduce the dataset to just those that are matched
 housing_data_matched <- 
   housing_data %>% 
   filter(match.ind != 0) %>% 
   dplyr::select(-match.ind, -pairs, -treatment_group)
-
-kable(head(housing_data_matched))
 ```
 
-After .... , the following table is the ‘effect’ of being treated on average spend in the ‘usual’ way(rohan, cite). 
 
-```{r,echo = F}
+```{r,echo = F, message = F, warning = F}
+#linear regression on the newly made dataset through matching
 propensity_score_regression <- 
   lm(price ~ bedrooms + sqft_living + yr_built + condition + treatment_group, 
                 data = housing_data)
 
-huxtable::huxreg(propensity_score_regression)
+hux <- huxtable::huxreg(propensity_score_regression)
+#kable(hux, "latex", booktabs = T, align = "c", caption = 'Regression summary') %>% 
+  #kable_styling(position = "center", latex_options = "hold_position")
+hux %>% 
+  set_markdown_contents(1, 2, "Model") %>%
+  set_markdown_contents(6, 1, "living area") %>%
+  set_markdown_contents(8, 1, "year built") %>%
+  set_markdown_contents(12, 1, "treatment") %>%
+  set_caption("Propensity Score Regression Summary")
 ```
+
+Looking at the table, the number of stars next to each coefficient estimates indicate how significant each value are, which is the p-value in different significance level depending on the number of stars. Every variable has a p-value smaller than 0.01 (at a 1% significance level), indicating that they are all significant predictor variables. Comparing to the original multiple linear regression summary in Table 4, every predictor variables have the same sign. Bedrooms and year built have a negative effect on the price of the house, and condition and sqft of living area have positive effects on the price.  The treatment group has a value of 193578.54, which means when the house is renovated and everything else stays constant, the renovation would cause the house price to increase by $193578.54.  
+
+
 
 \newpage
 
 # Discussion
 
 ## Summary
-The goal of the analysis is to find the significant factors that affect the price of houses. Using the 2014-2015 housing price dataset from Kaggle, only quantitative data is used to show the accurate multiple linear regression. Through the data cleaning process in the Data Section, some data that are outliers or influential points are eliminated as well as unrealistically big data. 
-Then, in the Model Section, to determine which variables to include in the regression, the AIC stepwise selection method is used and a linear regression model is built. After building a linear model, model diagnostics is done by showing the four assumptions of the regression - Linearity, Normality, Homogeneity of residuals variance, and Independence of the Error terms - using q-q plot, residual plot, and VIF models in the Model Section.  
+The goal of the analysis is to find the significant factors that affect the price of houses. Using the 2014-2015 housing price dataset from Kaggle, only quantitative data is used to show the accurate multiple linear regression. Through the data cleaning process in the Data Section, some data that are outliers or influential points that have a potential effect on the model are eliminated as well as unrealistic observations in the Data Section. 
+Then, in the Model Section, to determine which variables to include in the regression, the AIC stepwise selection method is used and a linear regression model is built. After building a linear model, model diagnostics is done by showing the four assumptions of the regression - Linearity, Normality, Homogeneity of residuals variance, and Independence of the Error terms - using q-q plot, residual plot, and VIF models.
 
-after the model selection, multiple linear regression and a propensity score matching is used to determine the correlation as well as the causal effect of the significant factors on house prices. Multiple linear regression along with the Propensity score matching shows both correlation and causal relationship between the price of the house and the observed variables.
+After the model selection, multiple linear regression and propensity score matching are used to determine the correlation as well as the causal effect of the significant factors on house prices. Multiple linear regression provides information about the correlation of the significant factors and the dependent variable housing price,  and the Propensity score matching shows a causal relationship between the price of the house and the observed variables.
 
-The predictor variables that contribute to change in housing prices are the number of bedrooms, living area in sqft, year built, and condition of the house as shown in Table 5. Every predictor variable has a significantly small p-value which indicates that it is a significant predictor variable. In the Result section, Figure 6 shows that there exist a linear relationship between the selected factors and the independent variable housing price. Among the predictor variables, the living area and condition of the house show a positive effect on the housing price, whereas the number of bedrooms and year built show a negative effect on the price.  
+## Conclusions
+The predictor variables that contribute to change in housing prices are the number of bedrooms, living area in sqft, year built, and condition of the house as shown in Table 4. Every predictor variable has a significantly small p-value under a 1% significance level which indicates that they are significant predictor variables. In the Result section, Figure 6 shows that there exists a linear relationship between the selected factors and the independent variable housing price. Among the predictor variables, the living area and condition of the house show a positive effect on the housing price, whereas the number of bedrooms and year built to show a negative effect on the price.  
 
-The result from Propensity score matching, which could be found in Table 6, shows that renovation has a positive causal effect. This means it is more likely for the house to be priced higher in the real estate market when the house is renovated. To connect to real life, there are various TV shows where people renovate their homes and sell their houses with a jump of the house price. 
+Condition of the house has the biggest effect on house price as we see in Table 4. To elaborate the finding of the coefficient estimates discussed in the Result section, among the four predictor variables, the condition variable has the biggest value, which means even though the house is a bit older, or the sqft of living area is smaller, as long as the house is in a good condition, it is predicted that the house could be sold at a higher price. For the negative effect on housing price, the bedroom variable has the biggest negative value, which theoretically means that as the house has more bedrooms, the price of the house would decrease. However, even though the number of the bedroom shows a negative coefficient for the regression estimate, by looking at the scatter plot in figure 5^[* Figure 5 can be found in the Appendix], it is hard to tell that the number of bedrooms has a significant negative effect on the housing price.  
 
-## Conclusions 
-The Multiple Linear Regression analysis shows that houses that are in good condition are more likely to be sold at a higher price, and as the house size is bigger, the price increases. 
-However, even though the number of the bedroom shows a negative coefficient for the regression estimate, by looking at the scatter plot in figure N, it is hard to tell that the number of bedrooms has a negative effect on the housing price.  
+Moving on, the result from Propensity score matching, which could be found in Table 5, shows that renovation has a positive causal effect. This means it is more likely for the house to be priced higher in the real estate market when the house is renovated. To connect to real life, there are various TV shows where people renovate their homes and sell their houses with a jump of the house price. the original regression output determines the correlation and likelihood of the house price to increase or decrease, not the causal effect of it. Here, the condition of the house and sqft of a living area does not "cause" the house price to increase. The propensity score regression output, however, determines the causal effect of the variables. Renovation "causes" an increase in the house price. 
+
+To sum up, The Multiple Linear Regression analysis shows that houses that are in good condition are more likely to be sold at a higher price, and as the house size is bigger, the price increases. Through the causal inference using propensity score matching, we find a strong causal effect of house renovation on the housing price. That means, Houses that are renovated cause the house price to increase significantly, and vice versa.
 
 
 ## Weaknesses 
 Every data analysis contains some weaknesses. There are a few weaknesses the analysis includes. First, the dataset contains housing prices of a limited area which is King County, and the data is from 2014-2015. Since the data does not represent the Canadian housing price or the recent housing price, the analysis might not be the most accurate way to predict the housing prices.  
 
-Also, the AIC stepwise selection method does not consider interaction terms, there might exist some relationships between the independent variables. This might also lead to an omitted variable bias, where the omitted variables should be correlated with the dependent variable, and correlated with the explanatory variables included in the model. There might be an important variable that would affect the model, but it is hard to figure out since the variable might be missing in our data set, or might be impossible to measure. Since the location of the house is also important, missing the location variable might have affected the model. 
+Also, the AIC stepwise selection method does not consider interaction terms, there might exist some relationships between the independent variables. This might also lead to an omitted variable bias, where the omitted variables should be correlated with the dependent variable, and correlated with the explanatory variables included in the model. There might be an important variable that would affect the model, but it is hard to figure out since the variable might be missing in the dataset, or might be impossible to measure. Since the location of the house is also important, missing the location variable might have affected the model. 
 
-Another weakness is that the multiple linear regression model does not fully satisfy the model assumption introduced in the Model section. Multivariate Normality, which shows the normal distribution of residuals of the regression is not satisfied. By looking at the QQ plot, it is noticeable that the data points do not trend the theoretical line, and the points at the upper tail of the data seem to jump and have higher values than the theoretical line, telling that the data might contain a gap in the values. This suggests that our model does not satisfy the normality assumption on the error terms. Therefore, we need to take into account that the result drawn from the regression model could be misleading or biased.  
+Another weakness is that the multiple linear regression model does not fully satisfy the model assumption introduced in the Model section. Multivariate Normality, which shows the normal distribution of residuals of the regression is not satisfied. By looking at the QQ plot in Figure 3, it is noticeable that the data points do not trend the theoretical line, and the points at the upper tail of the data seem to jump and have higher values than the theoretical line, telling that the data might contain a gap in the values. This suggests that our model does not fully satisfy the normality assumption on the error terms. Therefore, we need to take into account that the result drawn from the regression model could be misleading or biased.  
 
 
 ## Next Steps
-For the next steps, it would be a great idea to compare the housing prices after COVID-19 and do a causal inference pre & post analysis, to determine whether the COVID-19 affects the housing prices. In this analysis, the treatment variable would be houses that got affected by the COVID-19. Using the dataset that contains prices of condos, town houses, and detached houses would lead to an interesting result.  
+For the next steps, it would be a great idea to compare the housing prices after COVID-19 and do a causal inference pre & post analysis, to determine whether the COVID-19 affects the housing prices. In this analysis, the treatment variable would be houses that got affected by the COVID-19. Using the dataset that contains prices of condos, townhouses, and detached houses would lead to an interesting result.  
 
-Also, as addressed in the Weakness section, the location variable could be added with housing prices data of Toronto, or Canada, and analyze the regression model including the location. It would make a big difference when the location variable is added, since location affects the housing prices significantly as we can see in our real lives(urban/suburban, Toronto/other minor cities, etc).  
+Also, as addressed in the Weakness section, the location variable could be added with housing prices data of Toronto, or Canada, and analyze the regression model including the location. The variable might be a categorical variable, so it is important to treat it as a factor variable. It would make a big difference when the location variable is added since location affects the housing prices significantly as we can see in our real lives(urban/suburban, Toronto/other minor cities, etc).  
 
 It also would be a good idea to do a survey on what people consider when buying a house. Which factor comes in first? We could compare the data of the survey and the regression model performed in the analysis, and determine whether the regression model actually fits into the real life housing price prediction. 
 
@@ -436,4 +450,66 @@ It also would be a good idea to do a survey on what people consider when buying 
 
 17. Model diagnostics: Zhang, Zhongheng. “Variable Selection with Stepwise and Best Subset Approaches,” April 2016. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4842399/. 
 
-18. Model Diagnostics: “Assumptions of Multiple Linear Regression,” March 10, 2020. https://www.statisticssolutions.com/assumptions-of-multiple-linear-regression/. 
+18. Model Diagnostics: “Assumptions of Multiple Linear Regression,” March 10, 2020. https://www.statisticssolutions.com/assumptions-of-multiple-linear-regression/.  
+
+19. Knitr Package: Yihui Xie. 2020. knitr: A General-Purpose Package for Dynamic Report Generation in R. R package version 1.30.  
+
+20. kableExtra Package: Hao Zhu. kableExtra: Construct Complex Table with 'kable' and Pipe Syntax. R package
+  version 1.2.1, 2020. https://CRAN.R-project.org/package=kableExtra  
+
+21. lme4 Package: Douglas Bates, Martin Maechler, Ben Bolker, Steve Walker. Fitting Linear Mixed-Effects Models Using lme4. 2015. Journal of Statistical Software, 67(1), 1-48. doi:10.18637/jss.v067.i01.  
+  
+22. MASS Package: Venables, W. N. & Ripley, B. D., 2002.
+Modern Applied Statistics with S. Fourth Edition. Springer, New York. ISBN 0-387-95457-0.  
+
+23. tidyverse Package: Wickham et al., 2019. Welcome to the tidyverse. 
+Journal of Open Source Software, 4(43), 1686, https://doi.org/10.21105/joss.01686  
+
+24. gridExtra Package:  Baptiste Auguie, 2017. gridExtra: Miscellaneous Functions for "Grid" Graphics. 
+R package version 2.3. https://CRAN.R-project.org/package=gridExtra  
+
+25. dplyr Package: Hadley Wickham, Romain François, Lionel Henry and Kirill Müller. 2020. 
+dplyr: A Grammar of Data Manipulation. R package version 1.0.2. https://CRAN.R-project.org/package=dplyr  
+
+26. caret Package: Max Kuhn, 2020. caret: Classification and Regression Training. R package version 6.0-86.
+  https://CRAN.R-project.org/package=caret  
+
+27. tableone Package: Kazuki Yoshida and Alexander Bartel, 2020. tableone: Create 'Table 1' to Describe Baseline
+  Characteristics with or without Propensity Score Weights. R package version 0.12.0.
+  https://CRAN.R-project.org/package=tableone  
+  
+28. Matching Package: Jasjeet S. Sekhon. 2011. Multivariate and Propensity Score Matching Software with Automated Balance Optimization: The Matching Package for R. Journal of Statistical Software, 42(7), 1-52. URL
+  http://www.jstatsoft.org/v42/i07/.  
+
+29. rbounds Pacakge: Luke J. Keele, 2014. rbounds: Perform Rosenbaum bounds sensitivity tests for matched and unmatched data.. R package version 2.1. https://CRAN.R-project.org/package=rbounds  
+
+30. broom Package: David Robinson, Alex Hayes and Simon Couch, 2020. broom: Convert Statistical Objects into Tidy
+  Tibbles. R package version 0.7.3. https://CRAN.R-project.org/package=broom  
+
+31. Omitted Variable bias: Christoph Hanck, Martin Arnold. Introduction to Econometrics with R. 15 Sept. 2020, www.econometrics-with-r.org/6-1-omitted-variable-bias.html.
+
+32. Huxtable information: Hugh-Jones, David. Introduction to Huxtable, October 27, 2020. https://cran.r-project.org/web/packages/huxtable/vignettes/huxtable.html.  
+
+33. huxtable Package: avid Hugh-Jones, 2020. huxtable: Easily Create and Style Tables for LaTeX, HTML and Other Formats.
+  R package version 5.1.1. https://CRAN.R-project.org/package=huxtable
+
+
+
+\newpage
+  
+# Appendix   
+
+
+```{r, echo = F}
+kable(head(housing_data_matched), "latex", booktabs = T, align = "c", caption = 'Matched propensity score data') %>% kable_styling(position = "center", latex_options = "hold_position")
+```
+  
+    
+    
+```{r, echo = F, fig.width=6.8, fig.height=3.8}
+ggplot(housing_data, aes(x = bedrooms, y = price)) +
+    geom_point() + ggtitle("Figure 5: Scatterplot of Number of Bedrooms vs House Price")
+```
+
+
+
