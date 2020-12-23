@@ -25,6 +25,7 @@ library(Matching)
 library(rbounds)
 library(broom)
 library(huxtable)
+library(tinytex)
 options(scipen = 999)
 data <- read.csv("kc_house_data.csv")
 #data <- read.csv("housingprice/data.csv")
@@ -475,6 +476,9 @@ dplyr: A Grammar of Data Manipulation. R package version 1.0.2. https://CRAN.R-p
   R package version 5.1.1. https://CRAN.R-project.org/package=huxtable
 
 34. Propensity score matching 2 & DID: “Difference in Differences.” Telling Stories With Data, November 5, 2020. https://www.tellingstorieswithdata.com/06-03-matching_and_differences.html. 
+
+35. Tinytex Package: Yihui Xie, 2020. tinytex: Helper Functions to Install and Maintain TeX Live, and Compile LaTeX Documents. R
+  package version 0.28.
 
 \newpage
   
