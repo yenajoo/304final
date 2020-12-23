@@ -65,7 +65,7 @@ housing_data <- dplyr::select(data, price, bedrooms, bathrooms, sqft_living, flo
 
 #raw data plot
 plot1<- ggplot(housing_data, aes(x = sqft_living, y = price)) +
-    geom_point() + ggtitle("Figure 1: Scatterplot of the Raw Data")
+    geom_point() + ggtitle("Figure 1: Scatterplot of the Raw Data") + xlab("predictor variables")
 #cleaning data
 housing_data <- filter(housing_data, price <= 3000000 ) 
 housing_data <- filter(housing_data, sqft_living <= 5000 )
@@ -74,7 +74,7 @@ housing_data <- filter(housing_data, bathrooms >= 1 | bedrooms < 6)
 
 data_for_output <- housing_data
 plot2<- ggplot(housing_data, aes(x = sqft_living, y = price)) +
-    geom_point() + ggtitle("Figure 2: Scatterplot of the Cleaned Data")
+    geom_point() + ggtitle("Figure 2: Scatterplot of the Cleaned Data") + xlab("predictor variables")
 
 
 grid.arrange(plot1, plot2, ncol=2)
