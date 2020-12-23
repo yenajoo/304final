@@ -415,7 +415,7 @@ It also would be a good idea to survey what people consider when buying a house.
 
 9. Baseline Characteristics Table: Rich, Benjamin. “Baseline Characteristics Table,” November 25, 2020. https://cran.r-project.org/web/packages/table1/vignettes/table1-examples.html. 
 
-10. Data of House price prediction: Shree. “House Price Prediction,” August 26, 2018. https://www.kaggle.com/shree1992/housedata. 
+10. Harlfoxem. “House Sales in King County, USA,” August 25, 2016. https://www.kaggle.com/harlfoxem/housesalesprediction.  
 
 11. Information about real estate: Steve Huebl. April 27, 2020. “COVID-19's Impact on Real Estate: Toronto Home Sales Down 69%,” April 27, 2020. https://www.canadianmortgagetrends.com/2020/04/covid-19s-impact-on-real-estate-toronto-home-sales-down-69/. 
 

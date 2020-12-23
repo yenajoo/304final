@@ -2,7 +2,7 @@
 
 Hello, 
 
-The data I used can be downloaded from: https://www.kaggle.com/shree1992/housedata
+The data I used can be downloaded from: https://www.kaggle.com/harlfoxem/housesalesprediction
 If you would like to reproduce the data, please download it through the provided link and save it in the same directory you downloaded the Rmd. file
 
 Also, please consider that the main focus of the analysis is on the multiple linear regression, not the propensity score matching. 
